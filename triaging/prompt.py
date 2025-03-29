@@ -19,7 +19,7 @@ def get_triaging_prompt_template():
                 2. Questions should address information gaps in the user query - what hasn't been mentioned but is crucial to know
                 3. Focus on technical specifications, implementation requirements, and customer expectations
                 4. Format precisely as "Q1: [Question]", "Q2: [Question]", etc.
-                5. Each question should be concise (10-15 words) and direct
+                5. Each question should be concise (10-20 words) and direct
                 
                 ESSENTIAL AREAS TO COVER (prioritize based on relevance to the query):
                 • System capacity: Daily hot water volume needed, number of users, peak demand periods
