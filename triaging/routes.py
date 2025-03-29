@@ -32,7 +32,7 @@ async def get_user_question(user_query: UserQuery):
     
     # Initialize the Langchain model and prompt
     prompt_template = get_triaging_prompt_template()
-    prompt = prompt_template.format(user_query=user_query)
+    prompt = prompt_template.format(user_query=user_query.user_query)
 
     try:
         response = await asyncio.to_thread(model.invoke, prompt)
