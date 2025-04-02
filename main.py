@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from triaging.routes import router as triaging_router
+from product_manual.routes import router as product_manual_router
 
 app = FastAPI(
      title="Solar Hot Water System API",
@@ -17,7 +19,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# app.include_router(guest_router)
+app.include_router(triaging_router)
+app.include_router(product_manual_router)
 
 
 @app.get('/')
