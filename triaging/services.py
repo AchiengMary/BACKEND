@@ -4,6 +4,8 @@ from fastapi import HTTPException
 def process_model_response(response):
     """Extracts the list of questions from the model's response."""
     try:
+        # # Extract the questions from the content, assuming they are separated by '\n'
+        # question_list = response.content.strip().split("\n")
         # Handle both string and object responses
         if isinstance(response, str):
             # For string responses (from Gemini)

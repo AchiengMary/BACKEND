@@ -7,6 +7,8 @@ from dotenv import load_dotenv
 import google.generativeai as genai
 import os
 from triaging.services import process_model_response
+# from openai import OpenAI
+# from langchain_openai import ChatOpenAI
 
 load_dotenv()
 
@@ -38,6 +40,8 @@ async def get_user_question(user_query: UserQuery):
     prompt = prompt_template.format(user_query=user_query.user_query)
 
     try:
+        # response = await asyncio.to_thread(model.invoke, prompt)
+        # print(response)
         # Use Gemini to generate response
         response = await asyncio.to_thread(
             lambda: model.generate_content(prompt)
@@ -48,6 +52,7 @@ async def get_user_question(user_query: UserQuery):
         print(response_text)
         
         # Extract the list of questions from the model's response
+        # question_list = process_model_response(response)
         question_list = process_model_response(response_text)
         
         # Return the generated questions as a list
