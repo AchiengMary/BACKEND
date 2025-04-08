@@ -1,3 +1,51 @@
+import os
+from typing import Any, Dict, List
+from langchain_openai  import OpenAIEmbeddings
+from fastapi import HTTPException
+from triaging.schemas import QuestionnaireResponse
+from pinecone import Pinecone
+from langchain_community.vectorstores import Pinecone as LangchainPinecone
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+
+index_name = "davisandshirliff"
+
+# Initialize Pinecone with the current SDK
+pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
+
+# Connect to the existing index
+index = pc.Index(index_name)
+
+# embeddings = OpenAIEmbeddings(api_key=os.getenv("OPENAI_API_KEY"))
+def download_openai_embeddings():
+
+    """Downloads and returns OpenAI embeddings."""
+
+    embeddings = OpenAIEmbeddings()
+
+    return embeddings
+
+
+
+embeddings = download_openai_embeddings()
+# def download_google_embeddings():
+#     """Downloads and returns Google embeddings."""
+    
+    
+#     embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+#     return embeddings
+
+
+# # Initialize embeddings model
+# embeddings = download_google_embeddings()
+
+# Generate embeddings for a text
+def generate_embeddings(text):
+    """Generate embeddings for the input text using Google's embedding model"""
+    try:
+        vector = embeddings.embed_query(text)
+        return vector
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating embeddings: {str(e)}")
 
 
 def generate_prompt_from_questionnaire(data: QuestionnaireResponse) -> str:
@@ -15,17 +63,29 @@ def generate_prompt_from_questionnaire(data: QuestionnaireResponse) -> str:
     Installation Timeline: {data.timeline}
     """
 
-def get_recommendations_from_pinecone(vector: List[float], top_k: int = 3) -> List[Dict[str, Any]]:
+def get_recommendations_from_pinecone(vector: List[float], top_k: int = 5) -> List[Dict[str, Any]]:
     """Query Pinecone for the most similar systems based on the embedding vector"""
     try:
+        
+        # Query the index
         query_response = index.query(
             vector=vector,
             top_k=top_k,
             include_metadata=True
         )
-        return query_response.matches
+        
+        # Process and return results
+        return [
+            {
+                "id": match.id,
+                "score": match.score,
+                "metadata": match.metadata
+            } for match in query_response.matches
+        ]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error querying Pinecone: {str(e)}")
+
+
 
 def analyze_requirements(data: QuestionnaireResponse) -> Dict[str, Any]:
     """Analyze the requirements based on questionnaire data"""
