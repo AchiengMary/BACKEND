@@ -23,9 +23,15 @@ model = ChatGoogleGenerativeAI(
 def process_model_response(response):
     """Extracts the list of questions from the model's response."""
     try:
-        
-        # Extract the questions from the content, assuming they are separated by '\n'
-        question_list = response.content.strip().split("\n")
+        # # Extract the questions from the content, assuming they are separated by '\n'
+        # question_list = response.content.strip().split("\n")
+        # Handle both string and object responses
+        if isinstance(response, str):
+            # For string responses (from Gemini)
+            question_list = response.strip().split("\n")
+        else:
+            # For object responses (from OpenAI)
+            question_list = response.content.strip().split("\n")
 
         # Ensure we got exactly 5 questions
         if len(question_list) != 5:

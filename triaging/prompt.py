@@ -3,7 +3,7 @@ from langchain.prompts import ChatPromptTemplate
 def get_triaging_prompt_template():
     return ChatPromptTemplate.from_messages(
         [
-            ("system", "You are a specialized assistant for solar water heating system selection. Your goal is to help qualify customer needs through targeted questions that gather critical information for the sales process."),
+            ("system", "You are a specialized assistant for solar water heating system selection for Davis & Shirtliff. Your goal is to help qualify customer needs through targeted questions that gather critical information for the sales process."),
             (
                 "human",
                 """

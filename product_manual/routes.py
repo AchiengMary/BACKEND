@@ -1,7 +1,8 @@
 from fastapi import APIRouter, HTTPException
 from product_manual.services import generate_answer
 from product_manual.schema import AnswerResponse, QuestionRequest
-import openai  # Import OpenAI library
+# import openai  # Import OpenAI library
+import google.generativeai as genai
 from dotenv import load_dotenv
 import os
 from langdetect import detect, LangDetectException
@@ -14,23 +15,33 @@ router = APIRouter(
 
 load_dotenv()
 
-OPENAI_API_KEY=os.environ.get('OPENAI_API_KEY')
+# OpenAI Configuration (commented out)
+# OPENAI_API_KEY=os.environ.get('OPENAI_API_KEY')
+
+# Gemini Configuration
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
+genai.configure(api_key=GEMINI_API_KEY)
+model = genai.GenerativeModel('models/gemini-1.5-pro-latest')
 
 def translate_text(text, target_language="en"):
     """
-    Translates the given text to the target language using OpenAI's GPT model.
+    Translates the given text to the target language using Gemini.
     Default target language is English ("en").
     """
     try:
-        response = openai.chat.completions.create(
-            model="gpt-4o-mini",  # Using a valid model name
-            messages=[
-                {"role": "system", "content": "You are a translator."},
-                {"role": "user", "content": f"Translate the following text to {target_language}: {text}"}
-            ],
-            temperature=0.3
-        )
-        translated_text = response.choices[0].message.content.strip()
+        # response = openai.chat.completions.create(
+        #     model="gpt-4o-mini",  # Using a valid model name
+        #     messages=[
+        #         {"role": "system", "content": "You are a translator."},
+        #         {"role": "user", "content": f"Translate the following text to {target_language}: {text}"}
+        #     ],
+        #     temperature=0.3
+        # )
+        # translated_text = response.choices[0].message.content.strip()
+
+        prompt = f"Translate the following text to {target_language}: {text}"
+        response = model.generate_content(prompt)
+        translated_text = response.text.strip()
         return translated_text
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Translation failed: {str(e)}")
