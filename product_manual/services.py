@@ -14,22 +14,21 @@ from langchain_core.retrievers import BaseRetriever
 from langchain_core.documents import Document
 from langchain_core.callbacks import CallbackManagerForRetrieverRun
 from pydantic import Field, BaseModel
-import google.generativeai as genai
+from langchain_google_genai import ChatGoogleGenerativeAI
 import uuid
 
 load_dotenv()
 
 # Configuration
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
-GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
+# GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 PINECONE_API_KEY = os.environ.get('PINECONE_API_KEY')
+# GOOGLE_APPLICATION_CREDENTIALS = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
 index_name = "davisandshirliff"
 
 # Validate environment variables
 if not OPENAI_API_KEY:
     raise ValueError("OPENAI_API_KEY not found in environment variables")
-if not GEMINI_API_KEY:
-    raise ValueError("GEMINI_API_KEY not found in environment variables")
 if not PINECONE_API_KEY:
     raise ValueError("PINECONE_API_KEY not found in environment variables")
 
@@ -37,8 +36,11 @@ if not PINECONE_API_KEY:
 embeddings = OpenAIEmbeddings(api_key=OPENAI_API_KEY)
 pc = Pinecone(api_key=PINECONE_API_KEY)
 index = pc.Index(index_name)
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('models/gemini-1.5-pro-latest')
+model = ChatGoogleGenerativeAI(
+    model="gemini-1.5-pro-latest",
+    temperature=0.7,
+    convert_system_message_to_human=True
+)
 
 # Updated PineconeRetriever class that's compatible with newer LangChain versions
 class PineconeRetriever(BaseRetriever, BaseModel):
@@ -124,8 +126,8 @@ def generate_answer(question: str, chat_history: List[Dict[str, str]]) -> Answer
         prompt += "Assistant: "
         
         # Generate answer using Gemini
-        response = model.generate_content(prompt)
-        answer = response.text.strip()
+        response = model.invoke(prompt)
+        answer = response.content.strip()
         
         # Update chat history
         chat_history.append({"question": question, "answer": answer})
