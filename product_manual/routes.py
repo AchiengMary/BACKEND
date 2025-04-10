@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from product_manual.services import generate_answer
 from product_manual.schema import AnswerResponse, QuestionRequest
 # import openai  # Import OpenAI library
-import google.generativeai as genai
+from langchain_google_genai import ChatGoogleGenerativeAI
 from dotenv import load_dotenv
 import os
 from langdetect import detect, LangDetectException
@@ -19,9 +19,12 @@ load_dotenv()
 # OPENAI_API_KEY=os.environ.get('OPENAI_API_KEY')
 
 # Gemini Configuration
-GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
-genai.configure(api_key=GEMINI_API_KEY)
-model = genai.GenerativeModel('models/gemini-1.5-pro-latest')
+# GOOGLE_APPLICATION_CREDENTIALS = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
+model = ChatGoogleGenerativeAI(
+    model="gemini-1.5-pro-latest",
+    temperature=0.7,
+    convert_system_message_to_human=True
+)
 
 def translate_text(text, target_language="en"):
     """
@@ -40,8 +43,8 @@ def translate_text(text, target_language="en"):
         # translated_text = response.choices[0].message.content.strip()
 
         prompt = f"Translate the following text to {target_language}: {text}"
-        response = model.generate_content(prompt)
-        translated_text = response.text.strip()
+        response = model.invoke(prompt)
+        translated_text = response.content.strip()
         return translated_text
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Translation failed: {str(e)}")
