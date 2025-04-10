@@ -16,9 +16,10 @@ langchain-openai = "^0.3.11"
 uuid = "^1.30"
 langdetect = "^1.0.9"
 pinecone = {extras = ["grpc"], version = "^6.0.2"}
+langchain-google-genai = "^2.1.2"
 pypdf = "^5.4.0"
 langchain-pinecone = "^0.2.4"
-google-generativeai = "^0.8.4"
+
 
 
 [tool.poetry.group.dev.dependencies]
