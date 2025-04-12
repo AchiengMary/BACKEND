@@ -4,5 +4,5 @@ __pycache__/
 _pycache_/
 **/_pycache_/
 _pycache_
-**/_pycache_/**
-resume-screener-441307-231743993187.json
+*.pyc
+*/_pycache_/*
