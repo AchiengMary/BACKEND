@@ -53,8 +53,6 @@ def generate_prompt_from_questionnaire(data: QuestionnaireResponse) -> str:
     return f"""
     Property Type: {data.propertyType}
     Number of Occupants: {data.occupants}
-    Water Usage Pattern: {data.waterUsage}
-    Number of Floors: {data.floors}
     Budget Range: {data.budget}
     Installation Location: {data.location}
     Roof Type: {data.existingSystem}
@@ -87,23 +85,15 @@ def get_recommendations_from_pinecone(vector: List[float], top_k: int = 5) -> Li
 
 def analyze_requirements(data: QuestionnaireResponse) -> Dict[str, Any]:
     """Analyze the requirements based on questionnaire data"""
-    # Extract number of occupants (now a direct number input)
+    # Extract number of occupants
     try:
         num_occupants = int(data.occupants)
     except ValueError:
         # Default fallback if parsing fails
         num_occupants = 4
     
-    # Water consumption estimation (liters per person per day)
-    water_usage_per_person = {
-        "Light (mostly showers)": 30,
-        "Moderate (showers + appliances)": 50,
-        "Heavy (multiple baths daily)": 80,
-        "Commercial use": 100
-    }
-    
-    # Estimate daily hot water requirement
-    daily_usage = water_usage_per_person.get(data.waterUsage, 50)
+    # Water consumption estimation (50 liters per person per day as specified)
+    daily_usage = 50  # Fixed at 50 liters per person as specified in requirements
     total_daily_hot_water = num_occupants * daily_usage
     
     # Estimate roof area based on roof type and property type
@@ -148,7 +138,6 @@ def analyze_requirements(data: QuestionnaireResponse) -> Dict[str, Any]:
         available_roof = 15  # Default fallback
     
     # Estimate sunlight hours based on location
-    # This is a simplified approach - in production you might want to use a location database
     location_sunlight_map = {
         "Nairobi": 5.5,
         "Mombasa": 7,
@@ -166,18 +155,6 @@ def analyze_requirements(data: QuestionnaireResponse) -> Dict[str, Any]:
     location = data.location.split(',')[0].strip() if ',' in data.location else data.location.strip()
     sunlight_hours = location_sunlight_map.get(location, 6)  # Default to 6 hours if location not found
     
-    # Adjust collector area needed based on floors
-    # More floors might require additional piping and pressure considerations
-    floor_multiplier = 1.0
-    try:
-        floors = int(data.floors)
-        if floors > 1:
-            floor_multiplier = 1.0 + (floors - 1) * 0.1  # 10% increase per additional floor
-    except ValueError:
-        floors = 1
-    
-    # Calculate collector area with floor adjustment
-    collector_area_needed = (total_daily_hot_water / (40 * sunlight_hours)) * floor_multiplier
     
     # Return analysis results
     return {
@@ -185,11 +162,10 @@ def analyze_requirements(data: QuestionnaireResponse) -> Dict[str, Any]:
         "daily_hot_water_needed": total_daily_hot_water,
         "available_roof_space": available_roof,
         "effective_sunlight_hours": sunlight_hours,
-        "number_of_floors": floors,
+        "roof_type_needed": roof_type,
         "system_size_recommendation": {
             "min_capacity_liters": max(100, total_daily_hot_water * 0.8),
-            "ideal_capacity_liters": total_daily_hot_water * 1.2,
-            "collector_area_needed": collector_area_needed
+            "ideal_capacity_liters": total_daily_hot_water * 1.2
         },
         "water_source": data.waterSource,
         "electricity_source": data.electricitySource

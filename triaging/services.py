@@ -51,10 +51,9 @@ def generate_ai_recommendations(analysis: Dict[str, Any], pinecone_results: List
     # Construct the user prompt with analysis and raw Pinecone results
     user_prompt = f"""
     ## Customer Requirements:
+
     - Property Type: {data.propertyType}
     - Occupants: {data.occupants}
-    - Water Usage: {data.waterUsage}
-    - Number of Floors: {data.floors}
     - Budget: {data.budget}
     - Location: {data.location}
     - Roof Type: {data.existingSystem}
@@ -63,13 +62,14 @@ def generate_ai_recommendations(analysis: Dict[str, Any], pinecone_results: List
     - Electricity Source: {data.electricitySource}
     
     ## Technical Analysis:
+
     - Estimated Daily Hot Water Need: {analysis['daily_hot_water_needed']} liters
+    - Roof type needed is: {analysis['roof_type_needed']}
     - Recommended Tank Capacity: {analysis['system_size_recommendation']['ideal_capacity_liters']:.0f} liters
-    - Collector Area Needed: {analysis['system_size_recommendation']['collector_area_needed']:.1f} m²
-    - Available Roof Space: {analysis['available_roof_space']} m²
     - Effective Sunlight: {analysis['effective_sunlight_hours']} hours
     
     ## Raw Product Data from Database:
+
     {raw_results_str}
     
     First, extract and organize the key information from each product in the raw data. For each product:
@@ -89,10 +89,9 @@ def generate_ai_recommendations(analysis: Dict[str, Any], pinecone_results: List
     - additional_considerations: array of strings with installation tips
     """
     
-    # Generate AI response - use your existing model implementation
+    # Generate AI response
     try:
         # Assuming your model variable is defined elsewhere
-        # The code below follows your existing pattern
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt}

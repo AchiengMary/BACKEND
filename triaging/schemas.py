@@ -8,8 +8,8 @@ class UserQuery(BaseModel):
 class QuestionnaireResponse(BaseModel):
     propertyType: str = Field(..., description="Type of property")
     occupants: str = Field(..., description="Number of people typically using hot water")
-    waterUsage: str = Field(..., description="Description of hot water usage")
-    floors: str = Field(..., description="Number of floors in the property")
+    # waterUsage: str = Field(..., description="Description of hot water usage")
+    # floors: str = Field(..., description="Number of floors in the property")
     budget: str = Field(..., description="Estimated budget for the system")
     location: str = Field(..., description="Property location for installation")
     existingSystem: str = Field(..., description="Type of roof the property has")

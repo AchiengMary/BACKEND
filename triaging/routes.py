@@ -73,6 +73,8 @@ async def get_user_question(user_query: UserQuery):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing query: {str(e)}")
     
+
+    
 @router.post("/recommend", response_model=RecommendationResponse)
 async def recommend_system(data: QuestionnaireResponse = Body(...)):
     """Generate solar hot water system recommendations based on questionnaire responses"""
