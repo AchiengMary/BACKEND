@@ -1,5 +1,6 @@
 from typing import Any, Dict, List
 from pydantic import BaseModel, Field
+from langchain.output_parsers import ResponseSchema, StructuredOutputParser
 
 class UserQuery(BaseModel):
     user_query: str  # The user's inquiry/question

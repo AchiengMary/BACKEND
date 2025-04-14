@@ -1,4 +1,5 @@
 import os
+import re
 from typing import Any, Dict, List
 from langchain_openai  import OpenAIEmbeddings
 from fastapi import HTTPException
@@ -6,6 +7,12 @@ from triaging.schemas import QuestionnaireResponse
 from pinecone import Pinecone
 from langchain_community.vectorstores import Pinecone as LangchainPinecone
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain.output_parsers import ResponseSchema, StructuredOutputParser
+from langchain.prompts import PromptTemplate
+from dotenv import load_dotenv
+from langchain_google_genai import ChatGoogleGenerativeAI
+
+load_dotenv()
 
 index_name = "davisandshirliff"
 
@@ -14,6 +21,12 @@ pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 
 # Connect to the existing index
 index = pc.Index(index_name)
+
+llm = ChatGoogleGenerativeAI(
+    model="gemini-1.5-pro-latest",
+    temperature=0.7,
+    convert_system_message_to_human=True
+)
 
 # embeddings = OpenAIEmbeddings(api_key=os.getenv("OPENAI_API_KEY"))
 def download_openai_embeddings():
@@ -170,3 +183,152 @@ def analyze_requirements(data: QuestionnaireResponse) -> Dict[str, Any]:
         "water_source": data.waterSource,
         "electricity_source": data.electricitySource
     }
+    
+async def extract_questionnaire_data_with_ai(data: Dict[str, str]) -> QuestionnaireResponse:
+    """Use AI to extract structured information from questionnaire data"""
+    try:
+        # Convert questionnaire data to formatted text
+        questionnaire_text = ""
+        for question, answer in data.items():
+            questionnaire_text += f"Question: {question}\nAnswer: {answer}\n\n"
+        
+        # Define the output schema for structured extraction
+        response_schemas = [
+            ResponseSchema(name="propertyType", 
+                           description="Type of property (Residential Home, Apartment Building, Commercial Business, Hotel/Resort, or Other)"),
+            ResponseSchema(name="occupants", 
+                           description="Number of people typically using hot water (as a string)"),
+            ResponseSchema(name="budget", 
+                           description="Estimated budget for the system (as a string)"),
+            ResponseSchema(name="location", 
+                           description="Property location for installation (city name)"),
+            ResponseSchema(name="existingSystem", 
+                           description="Type of roof the property has (Flat, Tiles, Pitched(Mabati), or Other)"),
+            ResponseSchema(name="timeline", 
+                           description="Timeline for installation"),
+            ResponseSchema(name="waterSource", 
+                           description="Main source of water (Municipal, Borehole, Rainwater, or Surface water)"),
+            ResponseSchema(name="electricitySource", 
+                           description="Primary source of electricity (Grid, Solar, Generator, or None)")
+        ]
+        
+        # Create output parser
+        output_parser = StructuredOutputParser.from_response_schemas(response_schemas)
+        format_instructions = output_parser.get_format_instructions()
+        
+        # Create prompt template
+        template = """
+        You are an expert system that extracts structured information from questionnaire responses about solar water heating systems.
+        
+        Please analyze the following questions and answers, and extract the required information for a solar water heating system recommendation.
+        
+        {questionnaire}
+        
+        Based on these questions and answers, please extract the following information:
+        
+        {format_instructions}
+        
+        If any information is missing, make reasonable assumptions based on the available data:
+        - For property type, assume "Residential Home" if not specified
+        - For occupants, infer from water usage (50L per person) or assume 4 if not specified
+        - For location, assume "Nairobi" if not specified
+        - For water source, assume "Municipal" if not specified
+        - For electricity source, assume "Grid" if not specified
+        
+        When inferring roof type:
+        - "tiled" or "tiles" maps to "Tiles"
+        - "corrugated iron", "mabati", or "iron sheets" maps to "Pitched(Mabati)"
+        - "flat", "concrete", or "flat concrete" maps to "Flat"
+        - Any other roof type maps to "Other"
+        
+        OUTPUT:
+        """
+        
+        # Create the prompt with the questionnaire data
+        prompt = PromptTemplate(
+            template=template,
+            input_variables=["questionnaire"],
+            partial_variables={"format_instructions": format_instructions}
+        )
+        
+        # Generate the structured extraction
+        _input = prompt.format(questionnaire=questionnaire_text)
+        response = llm.invoke(_input)
+        
+        # Parse the response
+        extracted_data = output_parser.parse(response)
+        
+        # Convert to QuestionnaireResponse
+        return QuestionnaireResponse(
+            propertyType=extracted_data["propertyType"],
+            occupants=extracted_data["occupants"],
+            budget=extracted_data["budget"],
+            location=extracted_data["location"],
+            existingSystem=extracted_data["existingSystem"],
+            timeline=extracted_data["timeline"],
+            waterSource=extracted_data["waterSource"],
+            electricitySource=extracted_data["electricitySource"]
+        )
+        
+    except Exception as e:
+        # If AI extraction fails, fall back to a simpler method
+        print(f"AI extraction failed: {str(e)}")
+        return fallback_extraction(data)
+    
+def fallback_extraction(data: Dict[str, str]) -> QuestionnaireResponse:
+    """Fallback method to extract information if AI extraction fails"""
+    # Default values
+    property_type = "Residential Home"
+    occupants = "4"
+    budget = "0"
+    location = "Nairobi"
+    roof_type = "Other"
+    timeline = "Within 1 month"
+    water_source = "Municipal"
+    electricity_source = "Grid"
+    
+    # Basic extraction based on keywords
+    for question, answer in data.items():
+        question_lower = question.lower()
+        answer_lower = answer.lower() if answer else ""
+        
+        # Extract roof type
+        if "roof" in question_lower:
+            if "tile" in answer_lower:
+                roof_type = "Tiles"
+            elif "corrugated" in answer_lower or "iron" in answer_lower or "mabati" in answer_lower:
+                roof_type = "Pitched(Mabati)"
+            elif "flat" in answer_lower or "concrete" in answer_lower:
+                roof_type = "Flat"
+        
+        # Extract budget
+        if "budget" in question_lower:
+            budget_match = re.search(r'\d+', answer)
+            if budget_match:
+                budget = budget_match.group(0)
+        
+        # Extract timeline
+        if "when" in question_lower or "timeline" in question_lower or "installed" in question_lower:
+            timeline = answer if answer else timeline
+        
+        # Extract water usage to estimate occupants
+        if "usage" in question_lower and "water" in question_lower:
+            try:
+                usage = int(re.search(r'\d+', answer).group(0))
+                # Assuming 50L per person per day
+                estimated_occupants = max(1, round(usage / 50))
+                occupants = str(estimated_occupants)
+            except (ValueError, AttributeError):
+                pass
+    
+    # Create QuestionnaireResponse with extracted data
+    return QuestionnaireResponse(
+        propertyType=property_type,
+        occupants=occupants,
+        budget=budget,
+        location=location,
+        existingSystem=roof_type,
+        timeline=timeline,
+        waterSource=water_source,
+        electricitySource=electricity_source
+    )
