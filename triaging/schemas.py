@@ -24,15 +24,22 @@ class RecommendationResponse(BaseModel):
     additional_considerations: List[str] = Field(..., description="Additional considerations for the customer")
 
 class ExpansionParameters(BaseModel):
-    current_users: int = Field(..., description="Current number of users")
+    selected_system: str = Field(..., description="Currently installed system from dropdown")
     current_capacity: float = Field(..., description="Current system capacity in litres")
-    current_daily_usage: float = Field(..., description="Current daily usage in litres")
-    current_location: str = Field(..., description="Current system location")
-    new_users: int = Field(..., description="Expected future number of users")
+    current_users: int = Field(..., description="Current number of users")
+    location: str = Field(..., description="Installation location")
+    target_capacity: float = Field(..., description="Target capacity needed in litres")
+
+class SystemComponent(BaseModel):
+    model: str = Field(..., description="Model name/number")
+    capacity: float = Field(..., description="Capacity in litres")
+    description: str = Field(..., description="Component description")
     
 class ExpansionResponse(BaseModel):
-    recommended_changes: Dict[str, Any] = Field(..., description="Recommended system changes")
-    capacity_increase: float = Field(..., description="Recommended capacity increase in litres")
-    estimated_cost: Dict[str, float] = Field(..., description="Estimated costs for expansion")
-    implementation_steps: List[str] = Field(..., description="Steps to implement the expansion")
-    considerations: List[str] = Field(..., description="Important considerations for expansion")
+    current_system: Dict[str, Any] = Field(..., description="Details of current system")
+    additional_systems: List[SystemComponent] = Field(..., description="List of additional systems to be installed")
+    total_new_capacity: float = Field(..., description="Total capacity after expansion")
+    capacity_breakdown: Dict[str, float] = Field(..., description="Breakdown of capacity contribution from each component")
+    reasoning: str = Field(..., description="Detailed reasoning for the recommended configuration")
+    installation_notes: List[str] = Field(..., description="Specific installation and integration notes")
+    considerations: List[str] = Field(..., description="Important considerations for this specific expansion")

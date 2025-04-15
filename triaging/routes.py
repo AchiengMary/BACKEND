@@ -3,7 +3,7 @@ from typing import Dict
 from fastapi import APIRouter, HTTPException, Query,status,Depends, Body
 from langchain.chains import LLMChain
 from langchain_google_genai import ChatGoogleGenerativeAI
-from triaging.schemas import UserQuery, QuestionnaireResponse, RecommendationResponse, ExpansionParameters, ExpansionResponse
+from triaging.schemas import UserQuery, QuestionnaireResponse, RecommendationResponse, ExpansionParameters, ExpansionResponse, SystemComponent
 from triaging.prompt import get_triaging_prompt_template
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -136,60 +136,97 @@ async def recommend_system(data: QuestionnaireResponse = Body(...)):
 
 @router.post("/futureexpansion", response_model=ExpansionResponse)
 async def recommend_expansion(params: ExpansionParameters = Body(...)):
-    """Generate recommendations for future system expansion based on current and expected parameters"""
+    """Generate recommendations for system expansion using specific Davis & Shirtliff products"""
     try:
-        # Calculate required capacity increase based on new users
-        per_person_usage = params.current_daily_usage / params.current_users
-        future_daily_usage = per_person_usage * params.new_users
-        required_capacity = (future_daily_usage * 1.2)  # Adding 20% buffer
-        capacity_increase = max(0, required_capacity - params.current_capacity)
-        
-        # Generate recommendations
-        recommendations = {
-            "system_type": "Hot Water System Expansion",
-            "additional_capacity": f"{capacity_increase:.2f} litres",
-            "recommended_components": [
-                "Additional storage tank" if capacity_increase > 100 else "Tank upgrade",
-                "Additional solar collectors",
-                "Enhanced circulation system"
+        # Mock D&S product database (in real implementation, this would come from your actual database)
+        available_systems = {
+            "Standard": [
+                {"model": "DS-HW300", "capacity": 300, "description": "300L Solar Water Heater"},
+                {"model": "DS-HW150", "capacity": 150, "description": "150L Solar Water Heater"},
+                {"model": "DS-HW200", "capacity": 200, "description": "200L Solar Water Heater"},
+                {"model": "DS-HW500", "capacity": 500, "description": "500L Solar Water Heater"}
             ]
         }
+
+        # Calculate required additional capacity
+        required_additional = params.target_capacity - params.current_capacity
         
-        # Calculate estimated costs
-        base_cost_per_litre = 100  # Base cost per litre of capacity
-        installation_factor = 0.3  # 30% of hardware cost
-        hardware_cost = capacity_increase * base_cost_per_litre
-        installation_cost = hardware_cost * installation_factor
-        
-        estimated_costs = {
-            "hardware": hardware_cost,
-            "installation": installation_cost,
-            "total": hardware_cost + installation_cost
+        # Current system details
+        current_system = {
+            "model": params.selected_system,
+            "capacity": params.current_capacity,
+            "location": params.location
         }
         
-        # Generate implementation steps
-        implementation_steps = [
-            "1. Technical assessment of current system",
-            "2. Site survey for expansion feasibility",
-            "3. Procurement of additional components",
-            "4. System upgrade installation",
-            "5. Testing and commissioning"
-        ]
+        # Find optimal combination of additional systems
+        additional_systems = []
+        remaining_capacity = required_additional
+        capacity_breakdown = {"current": params.current_capacity}
         
-        # Important considerations
+        # Logic for selecting additional systems
+        while remaining_capacity > 0:
+            # Find the largest suitable system that doesn't exceed remaining capacity
+            suitable_system = None
+            for system in available_systems["Standard"]:
+                if system["capacity"] <= remaining_capacity:
+                    if not suitable_system or system["capacity"] > suitable_system["capacity"]:
+                        suitable_system = system
+            
+            if not suitable_system:
+                # If no exact fit, get smallest system that can help
+                suitable_system = min(available_systems["Standard"], key=lambda x: x["capacity"])
+            
+            additional_systems.append(SystemComponent(
+                model=suitable_system["model"],
+                capacity=suitable_system["capacity"],
+                description=suitable_system["description"]
+            ))
+            
+            capacity_breakdown[suitable_system["model"]] = suitable_system["capacity"]
+            remaining_capacity -= suitable_system["capacity"]
+            
+            if len(additional_systems) >= 3:  # Limit to prevent too many separate systems
+                break
+        
+        # Calculate total new capacity
+        total_new_capacity = params.current_capacity + sum(system.capacity for system in additional_systems)
+        
+        # Generate detailed reasoning
+        reasoning = f"Based on your target capacity of {params.target_capacity}L and current capacity of {params.current_capacity}L, "
+        reasoning += f"we recommend adding {len(additional_systems)} additional system(s) to achieve a total capacity of {total_new_capacity}L. "
+        reasoning += "The combination was selected to optimize for:\n"
+        reasoning += "1. Minimal number of additional units\n"
+        reasoning += "2. Standard available system sizes\n"
+        reasoning += "3. Efficient integration with existing system"
+        
+        # Generate installation notes
+        installation_notes = [
+            f"Connect new {system.model} ({system.capacity}L) to existing system using parallel configuration"
+            for system in additional_systems
+        ]
+        installation_notes.extend([
+            "Install non-return valves between systems to prevent backflow",
+            "Ensure balanced flow distribution across all units",
+            "Configure temperature sensors for synchronized operation"
+        ])
+        
+        # Specific considerations for this expansion
         considerations = [
-            "Structural capacity of current installation location",
-            "Integration with existing system",
-            "Minimal disruption to current operations during upgrade",
-            "Future maintenance requirements",
-            f"Expected completion time: {2 + int(capacity_increase/500)} days"
+            f"Total system capacity after expansion: {total_new_capacity}L vs target {params.target_capacity}L",
+            "Ensure roof structure can support additional weight",
+            f"Available roof space needed: approximately {sum(system.capacity * 0.5 for system in additional_systems)} sq meters for new collectors",
+            "Pressure balancing between multiple systems required",
+            "May need to upgrade circulation pump depending on final configuration",
+            f"Location considerations for {params.location}: ensure adequate solar exposure for all collectors"
         ]
         
         return ExpansionResponse(
-            recommended_changes=recommendations,
-            capacity_increase=capacity_increase,
-            estimated_cost=estimated_costs,
-            implementation_steps=implementation_steps,
+            current_system=current_system,
+            additional_systems=additional_systems,
+            total_new_capacity=total_new_capacity,
+            capacity_breakdown=capacity_breakdown,
+            reasoning=reasoning,
+            installation_notes=installation_notes,
             considerations=considerations
         )
         
