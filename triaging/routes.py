@@ -3,13 +3,12 @@ from typing import Dict
 from fastapi import APIRouter, HTTPException, Query,status,Depends, Body
 from langchain.chains import LLMChain
 from langchain_google_genai import ChatGoogleGenerativeAI
-from triaging.schemas import UserQuery
+from triaging.schemas import UserQuery, QuestionnaireResponse, RecommendationResponse, ExpansionParameters, ExpansionResponse
 from triaging.prompt import get_triaging_prompt_template
 from dotenv import load_dotenv
 from openai import OpenAI
 from langchain_openai import ChatOpenAI
 from triaging.services import process_model_response, generate_ai_recommendations
-from triaging.schemas import QuestionnaireResponse, RecommendationResponse
 from triaging.helper import generate_prompt_from_questionnaire, generate_embeddings, get_recommendations_from_pinecone, analyze_requirements, extract_questionnaire_data_with_ai
 # import google.generativeai as genai
 import os
@@ -134,6 +133,68 @@ async def recommend_system(data: QuestionnaireResponse = Body(...)):
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing recommendation: {str(e)}")
+
+@router.post("/futureexpansion", response_model=ExpansionResponse)
+async def recommend_expansion(params: ExpansionParameters = Body(...)):
+    """Generate recommendations for future system expansion based on current and expected parameters"""
+    try:
+        # Calculate required capacity increase based on new users
+        per_person_usage = params.current_daily_usage / params.current_users
+        future_daily_usage = per_person_usage * params.new_users
+        required_capacity = (future_daily_usage * 1.2)  # Adding 20% buffer
+        capacity_increase = max(0, required_capacity - params.current_capacity)
+        
+        # Generate recommendations
+        recommendations = {
+            "system_type": "Hot Water System Expansion",
+            "additional_capacity": f"{capacity_increase:.2f} litres",
+            "recommended_components": [
+                "Additional storage tank" if capacity_increase > 100 else "Tank upgrade",
+                "Additional solar collectors",
+                "Enhanced circulation system"
+            ]
+        }
+        
+        # Calculate estimated costs
+        base_cost_per_litre = 100  # Base cost per litre of capacity
+        installation_factor = 0.3  # 30% of hardware cost
+        hardware_cost = capacity_increase * base_cost_per_litre
+        installation_cost = hardware_cost * installation_factor
+        
+        estimated_costs = {
+            "hardware": hardware_cost,
+            "installation": installation_cost,
+            "total": hardware_cost + installation_cost
+        }
+        
+        # Generate implementation steps
+        implementation_steps = [
+            "1. Technical assessment of current system",
+            "2. Site survey for expansion feasibility",
+            "3. Procurement of additional components",
+            "4. System upgrade installation",
+            "5. Testing and commissioning"
+        ]
+        
+        # Important considerations
+        considerations = [
+            "Structural capacity of current installation location",
+            "Integration with existing system",
+            "Minimal disruption to current operations during upgrade",
+            "Future maintenance requirements",
+            f"Expected completion time: {2 + int(capacity_increase/500)} days"
+        ]
+        
+        return ExpansionResponse(
+            recommended_changes=recommendations,
+            capacity_increase=capacity_increase,
+            estimated_cost=estimated_costs,
+            implementation_steps=implementation_steps,
+            considerations=considerations
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing expansion recommendation: {str(e)}")
 
 
 # import google.generativeai as genai
