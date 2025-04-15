@@ -22,3 +22,24 @@ class RecommendationResponse(BaseModel):
     recommended_systems: List[Dict[str, Any]] = Field(..., description="List of recommended solar hot water systems")
     reasoning: str = Field(..., description="Explanation for the recommendations")
     additional_considerations: List[str] = Field(..., description="Additional considerations for the customer")
+
+class ExpansionParameters(BaseModel):
+    selected_system: str = Field(..., description="Currently installed system from dropdown")
+    current_capacity: float = Field(..., description="Current system capacity in litres")
+    current_users: int = Field(..., description="Current number of users")
+    location: str = Field(..., description="Installation location")
+    target_capacity: float = Field(..., description="Target capacity needed in litres")
+
+class SystemComponent(BaseModel):
+    model: str = Field(..., description="Model name/number")
+    capacity: float = Field(..., description="Capacity in litres")
+    description: str = Field(..., description="Component description")
+    
+class ExpansionResponse(BaseModel):
+    current_system: Dict[str, Any] = Field(..., description="Details of current system")
+    additional_systems: List[SystemComponent] = Field(..., description="List of additional systems to be installed")
+    total_new_capacity: float = Field(..., description="Total capacity after expansion")
+    capacity_breakdown: Dict[str, float] = Field(..., description="Breakdown of capacity contribution from each component")
+    reasoning: str = Field(..., description="Detailed reasoning for the recommended configuration")
+    installation_notes: List[str] = Field(..., description="Specific installation and integration notes")
+    considerations: List[str] = Field(..., description="Important considerations for this specific expansion")
