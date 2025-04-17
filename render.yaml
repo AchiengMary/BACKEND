@@ -5,6 +5,7 @@ services:
     dockerfilePath: Dockerfile  # or backend/Dockerfile if it's in a subfolder
     plan: free
     envVars:
-      - key: PORT
-        value: "8000"
-
+      #      - key: PORT
+      #  value: "8000"
+      - key: ENV
+        value: production
