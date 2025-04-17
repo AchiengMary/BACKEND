@@ -2,10 +2,9 @@ services:
   - type: web
     name: f1-backend
     env: docker
-    dockerfilePath: Dockerfile  # Path to the Dockerfile in your repo
-    buildCommand: ""  # Optional: leave blank since Dockerfile will build the image
-    startCommand: "uvicorn main:app --host 0.0.0.0 --port 8000"
+    dockerfilePath: Dockerfile  # or backend/Dockerfile if it's in a subfolder
+    plan: free
     envVars:
       - key: PORT
         value: "8000"
-    plan: free
+
