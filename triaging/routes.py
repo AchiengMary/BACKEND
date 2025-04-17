@@ -113,7 +113,7 @@ async def recommend_system(data: QuestionnaireResponse = Body(...)):
     try:
         # Generate prompt and embeddings
         prompt = generate_prompt_from_questionnaire(data)
-        print(f"Prompt: {prompt}")
+        # print(f"Prompt: {prompt}")
         
         # Generate embeddings for the prompt
         embeddings = generate_embeddings(prompt)
@@ -121,7 +121,7 @@ async def recommend_system(data: QuestionnaireResponse = Body(...)):
         
         # Query Pinecone for similar systems
         pinecone_results = get_recommendations_from_pinecone(embeddings)
-        print(f"Pinecone results: {pinecone_results}")
+        # print(f"Pinecone results: {pinecone_results}")
         
         # Analyze requirements
         analysis = analyze_requirements(data)
