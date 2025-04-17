@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, Query,status,Depends, Body
 from langchain.chains import LLMChain
 from langchain_google_genai import ChatGoogleGenerativeAI
 from triaging.schemas import UserQuery, QuestionnaireResponse, RecommendationResponse, ExpansionParameters, ExpansionResponse, SystemComponent
-from triaging.prompt import get_triaging_prompt_template
+from triaging.prompt import get_triaging_prompt_template, expansion_system_prompt
 from dotenv import load_dotenv
 from openai import OpenAI
 from langchain_openai import ChatOpenAI
@@ -13,6 +13,8 @@ from triaging.helper import generate_prompt_from_questionnaire, generate_embeddi
 # import google.generativeai as genai
 import os
 from triaging.services import process_model_response
+import json
+import re
 
 load_dotenv()
 
@@ -136,100 +138,107 @@ async def recommend_system(data: QuestionnaireResponse = Body(...)):
 
 @router.post("/futureexpansion", response_model=ExpansionResponse)
 async def recommend_expansion(params: ExpansionParameters = Body(...)):
-    """Generate recommendations for system expansion using specific Davis & Shirtliff products"""
+    """Generate recommendations for system expansion using Davis & Shirtliff products from Pinecone"""
     try:
-        # Mock D&S product database (in real implementation, this would come from your actual database)
-        available_systems = {
-            "Standard": [
-                {"model": "DS-HW300", "capacity": 300, "description": "300L Solar Water Heater"},
-                {"model": "DS-HW150", "capacity": 150, "description": "150L Solar Water Heater"},
-                {"model": "DS-HW200", "capacity": 200, "description": "200L Solar Water Heater"},
-                {"model": "DS-HW500", "capacity": 500, "description": "500L Solar Water Heater"}
-            ]
+        # Generate prompt for the expansion scenario
+        expansion_prompt = f"""
+        Current System:
+        - Model: {params.selected_system}
+        - Capacity: {params.current_capacity} litres
+        - Users: {params.current_users}
+        - Location: {params.location}
+        Target Capacity: {params.target_capacity} litres
+        Additional Capacity Needed: {params.target_capacity - params.current_capacity} litres
+        """
+        
+        # Generate embeddings for the expansion requirements
+        embeddings = generate_embeddings(expansion_prompt)
+        
+        # Query Pinecone for similar systems
+        pinecone_results = get_recommendations_from_pinecone(embeddings)
+        
+        # Analyze expansion requirements
+        analysis = {
+            "current_capacity": params.current_capacity,
+            "target_capacity": params.target_capacity,
+            "additional_capacity_needed": params.target_capacity - params.current_capacity,
+            "location": params.location,
+            "current_users": params.current_users
         }
-
-        # Calculate required additional capacity
-        required_additional = params.target_capacity - params.current_capacity
         
-        # Current system details
-        current_system = {
-            "model": params.selected_system,
-            "capacity": params.current_capacity,
-            "location": params.location
-        }
+        # Use AI to generate detailed recommendations
+        user_prompt = f"""
+        ## Current System Information:
+        - Model: {params.selected_system}
+        - Current Capacity: {params.current_capacity} litres
+        - Location: {params.location}
+        - Current Users: {params.current_users}
         
-        # Find optimal combination of additional systems
-        additional_systems = []
-        remaining_capacity = required_additional
-        capacity_breakdown = {"current": params.current_capacity}
+        ## Expansion Requirements:
+        - Target Capacity: {params.target_capacity} litres
+        - Additional Capacity Needed: {analysis['additional_capacity_needed']} litres
         
-        # Logic for selecting additional systems
-        while remaining_capacity > 0:
-            # Find the largest suitable system that doesn't exceed remaining capacity
-            suitable_system = None
-            for system in available_systems["Standard"]:
-                if system["capacity"] <= remaining_capacity:
-                    if not suitable_system or system["capacity"] > suitable_system["capacity"]:
-                        suitable_system = system
-            
-            if not suitable_system:
-                # If no exact fit, get smallest system that can help
-                suitable_system = min(available_systems["Standard"], key=lambda x: x["capacity"])
-            
-            additional_systems.append(SystemComponent(
-                model=suitable_system["model"],
-                capacity=suitable_system["capacity"],
-                description=suitable_system["description"]
-            ))
-            
-            capacity_breakdown[suitable_system["model"]] = suitable_system["capacity"]
-            remaining_capacity -= suitable_system["capacity"]
-            
-            if len(additional_systems) >= 3:  # Limit to prevent too many separate systems
-                break
+        ## Available Systems from Database:
+        {json.dumps(pinecone_results, indent=2)}
         
-        # Calculate total new capacity
-        total_new_capacity = params.current_capacity + sum(system.capacity for system in additional_systems)
+        Based on the current system and expansion requirements:
+        1. Recommend specific additional Davis & Shirtliff systems that would best complement the existing system
+        2. Ensure the total capacity meets or slightly exceeds the target
+        3. Prefer combinations that use standard system sizes (e.g., 300L + 150L for 450L need)
+        4. Include specific installation and integration considerations
         
-        # Generate detailed reasoning
-        reasoning = f"Based on your target capacity of {params.target_capacity}L and current capacity of {params.current_capacity}L, "
-        reasoning += f"we recommend adding {len(additional_systems)} additional system(s) to achieve a total capacity of {total_new_capacity}L. "
-        reasoning += "The combination was selected to optimize for:\n"
-        reasoning += "1. Minimal number of additional units\n"
-        reasoning += "2. Standard available system sizes\n"
-        reasoning += "3. Efficient integration with existing system"
+        Format your response as a JSON object with:
+        - current_system: object with model and capacity
+        - additional_systems: array of recommended systems with model, capacity, and description
+        - total_new_capacity: total capacity after expansion
+        - capacity_breakdown: object showing capacity contribution from each component
+        - reasoning: detailed explanation of recommendations
+        - installation_notes: array of specific installation steps
+        - considerations: array of important considerations
+        """
         
-        # Generate installation notes
-        installation_notes = [
-            f"Connect new {system.model} ({system.capacity}L) to existing system using parallel configuration"
-            for system in additional_systems
-        ]
-        installation_notes.extend([
-            "Install non-return valves between systems to prevent backflow",
-            "Ensure balanced flow distribution across all units",
-            "Configure temperature sensors for synchronized operation"
-        ])
-        
-        # Specific considerations for this expansion
-        considerations = [
-            f"Total system capacity after expansion: {total_new_capacity}L vs target {params.target_capacity}L",
-            "Ensure roof structure can support additional weight",
-            f"Available roof space needed: approximately {sum(system.capacity * 0.5 for system in additional_systems)} sq meters for new collectors",
-            "Pressure balancing between multiple systems required",
-            "May need to upgrade circulation pump depending on final configuration",
-            f"Location considerations for {params.location}: ensure adequate solar exposure for all collectors"
+        # Generate AI response using expansion-specific system prompt
+        messages = [
+            {"role": "system", "content": expansion_system_prompt},
+            {"role": "user", "content": user_prompt}
         ]
         
-        return ExpansionResponse(
-            current_system=current_system,
-            additional_systems=additional_systems,
-            total_new_capacity=total_new_capacity,
-            capacity_breakdown=capacity_breakdown,
-            reasoning=reasoning,
-            installation_notes=installation_notes,
-            considerations=considerations
-        )
+        result = model.invoke(messages)
+        response_text = result.content
         
+        try:
+            # Parse JSON response
+            json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', response_text)
+            if json_match:
+                parsed_json = json.loads(json_match.group(1))
+            else:
+                json_match = re.search(r'(\{[\s\S]*\})', response_text)
+                if json_match:
+                    parsed_json = json.loads(json_match.group(1))
+                else:
+                    parsed_json = json.loads(response_text)
+                    
+            # Convert to ExpansionResponse
+            return ExpansionResponse(
+                current_system=parsed_json["current_system"],
+                additional_systems=[
+                    SystemComponent(
+                        model=sys["model"],
+                        capacity=sys["capacity"],
+                        description=sys["description"]
+                    ) for sys in parsed_json["additional_systems"]
+                ],
+                total_new_capacity=parsed_json["total_new_capacity"],
+                capacity_breakdown=parsed_json["capacity_breakdown"],
+                reasoning=parsed_json["reasoning"],
+                installation_notes=parsed_json["installation_notes"],
+                considerations=parsed_json["considerations"]
+            )
+            
+        except Exception as json_err:
+            print(f"Error parsing AI response: {str(json_err)}")
+            raise HTTPException(status_code=500, detail="Error processing AI recommendations")
+            
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing expansion recommendation: {str(e)}")
 
