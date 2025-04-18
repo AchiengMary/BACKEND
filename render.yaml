@@ -6,7 +6,7 @@ services:
     plan: free
     autoDeploy: true
     envVars:
-      #      - key: PORT
-      #  value: "8000"
-      - key: ENV
-        value: production
+      - key: PORT
+        value: "8000"
+          # - key: ENV
+          #  value: production

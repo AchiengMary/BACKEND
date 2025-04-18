@@ -1,14 +1,15 @@
-#from dotenv import load_dotenv
-#from openai import OpenAI
-#load_dotenv()
+from dotenv import load_dotenv
+from openai import OpenAI
+load_dotenv()
 
-#client = OpenAI()
+client = OpenAI()
 
-#model = client.responses.create(
-#    model="gpt-4o-mini",
+model = client.responses.create(
+    model="gpt-4o-mini",
     
-#)
+)
 
+'''
 import os
 from dotenv import load_dotenv
 
@@ -34,4 +35,4 @@ if llm is None:
         model="gpt-4o-mini",
     )
     llm = model  # assign it to `llm` so the rest of your app uses it
-
+'''
