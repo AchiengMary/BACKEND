@@ -28,3 +28,11 @@ app.include_router(erp_router)
 @app.get('/')
 def health_check():
     return JSONResponse(content={"status": "Wellcome. The server is up and Running!"})
+
+import os
+import uvicorn
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
+
