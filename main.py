@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from triaging.routes import router as triaging_router
 from product_manual.routes import router as product_manual_router
 from erp.routes import router as erp_router
+from Auth.routes import router as auth_router
 
 app = FastAPI(
      title="Solar Hot Water System API",
@@ -23,6 +24,7 @@ app.add_middleware(
 app.include_router(triaging_router)
 app.include_router(product_manual_router)
 app.include_router(erp_router)
+app.include_router(auth_router)
 
 
 @app.get('/')
