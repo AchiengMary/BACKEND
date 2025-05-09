@@ -2,7 +2,7 @@ services:
   - type: web
     name: f1-backend
     env: docker
-    dockerfilePath: Dockerfile  # or backend/Dockerfile if it's in a subfolder
+    dockerfilePath: Dockerfile 
     plan: free
     autoDeploy: true
     envVars:
