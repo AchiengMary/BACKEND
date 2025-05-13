@@ -1,4 +1,6 @@
 import datetime
+import json
+from typing import Any, Dict
 import requests
 from requests.auth import HTTPBasicAuth
 from dotenv import load_dotenv
@@ -9,6 +11,58 @@ load_dotenv()
 ERP_BASE_URL = os.getenv("ERP_BASE_URL")
 USERNAME = os.getenv("ERP_USERNAME")
 PASSWORD = os.getenv("ERP_PASSWORD")
+
+def post_to_erp(entity_name: str, data: Dict[str, Any]):
+    url = f"{ERP_BASE_URL}/{entity_name}"
+    
+    headers = {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+    }
+    
+    # Convert data to JSON string
+    json_data = json.dumps(data)
+    
+    response = requests.post(
+        url,
+        auth=HTTPBasicAuth(USERNAME, PASSWORD),
+        headers=headers,
+        data=json_data
+    )
+    
+    if response.status_code in [200, 201, 202]:
+        return response.json() if response.text else {"message": "Success"}
+    else:
+        raise Exception(f"Failed to post data: {response.status_code} - {response.text}")
+    
+def fetch_referrence_number(reference: str):
+
+    # URL encode the reference number as it may contain special characters
+    import urllib.parse
+    encoded_number = urllib.parse.quote(reference)
+    
+    # Build URL with filter for exact Reference number
+    url = f"{ERP_BASE_URL}/Sales_Quote?$filter=Reference eq '{encoded_number}'"
+    
+    response = requests.get(url, auth=HTTPBasicAuth(USERNAME, PASSWORD))
+    if response.status_code == 200:
+        data = response.json()
+        print(f"Fetched Reference data: {data}")
+        # If there's no Reference found, return empty dict or appropriate message
+        if not data.get('value') or len(data['value']) == 0:
+            return {"message": "No Reference found with the given number", "data": None}
+        return data
+    else:
+        raise Exception(f"Failed: {response.status_code} - {response.text}")
+    
+def create_sales_quote_line(data: Dict[str, Any]):
+    """
+    Create a new sales quote line item 
+        
+    Returns:
+        The response from the ERP system
+    """
+    return post_to_erp("Sales_QuoteSalesLines", data)
 
 def fetch_entity(entity_name: str, entity_id: str = None, top: int = 100, skip: int = 0):
     url = f"{ERP_BASE_URL}/{entity_name}?$top={top}&$skip={skip}"  # Use pagination with top and skip
@@ -39,7 +93,6 @@ def fetch_customer_by_phone_number(Phone_No: str):
         return data
     else:
         raise Exception(f"Failed: {response.status_code} - {response.text}")
-
 
 def fetch_product_by_number(product_number: str):
 
