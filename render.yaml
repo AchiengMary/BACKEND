@@ -8,3 +8,14 @@ services:
     envVars:
       - key: PORT
         value: "8000"
+
+
+
+  - type: web
+    name: f1-frontend
+    env: docker
+    dockerfilePath: Dockerfile
+    plan: free
+    envVars:
+      - key: REACT_APP_API_URL
+        value: https://f1-backend-t9zk.onrender.com 
