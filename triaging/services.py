@@ -66,7 +66,7 @@ def generate_ai_recommendations(analysis: Dict[str, Any], pinecone_results: List
 
     - Estimated Daily Hot Water Need: {analysis['daily_hot_water_needed']} liters
     - Roof type needed is: {analysis['roof_type_needed']}
-    - Recommended Tank Capacity: {analysis['system_size_recommendation']['ideal_capacity_liters']:.0f} liters
+    - Recommended Tank Capacity: {int(analysis['system_size_recommendation']['ideal_capacity_liters'])} liters
     - Effective Sunlight: {analysis['effective_sunlight_hours']} hours
     
     ## Product names as they are in our ERP database:
@@ -117,23 +117,106 @@ def generate_ai_recommendations(analysis: Dict[str, Any], pinecone_results: List
 
     {raw_results_str}
     
-    First, extract and organize the key information from each product in the raw data. For each product:
-    1. Identify the system name/model (e.g., "ULTRASUN UFS300D FLATPLATE SOLAR HOT WATER SYSTEM", DAYLIFF HPW 120LITRES ALL-IN-ONE HEAT PUMP", "ULTRASUN UVT300 VACTUBE SOLAR HOT WATER TANK", "ULTRASUN UFS150D FLATPLATE SOLAR HOT WATER SYSTEM", "ULTRASUN UFS300DE DIRECT ENAMEL SOLAR HOT WATER SYSTEM, etc.) Strictly stick to such naming convention based on the available data. Only reccommend the system names that are available in the ERP database.
-    2. Always include the system model number (e.g., "DSD150", "HPW120", "DVS300/1", etc.) of each product.
-    3. Determine the collector type (flatplate, vacuum tube, pumped circulation, etc.)
-    4. Extract capacity information that meets the customer's needs in units (eg. litres). This is very important.
-    5. Note key features and specifications 
-    6. Strictly do not include estimated_cost.
+    Based on the customer requirements and technical analysis, provide ONE primary recommended system and TWO alternative options.
     
-    Then, analyze which systems best match the customer requirements and provide:
-    1. Top 2 recommended systems with specific models from Davis & Shirtliff
-    2. Clear reasoning for each recommendation
-    3. Additional considerations for this specific customer
+    For EACH system recommendation:
+    1. Use EXACTLY the system name as it appears in the ERP database (e.g., "ULTRASUN UFS300D FLATPLATE SOLAR HOT WATER SYSTEM", "DAYLIFF HPW 300LITRES ALL-IN-ONE HEAT PUMP", "ULTRASUN CWS1500 SOLAR HOT WATER SYSTEM", "ULTRASUN UFS150I INDIRECT SOLAR HOT WATER TANK") 
+    2. Include the exact model number (e.g., "DSD300")
+    3. Always provide these key specifications:
+       - Tank Size (in Liters)
+       - Collector Type (Flatplate, Vacuum Tube, etc.)
+       - Heat Output (kWh/day) when possible
+       - Suitable For (number of people the system can serve)
+    4. Include a brief description (2-3 sentences) highlighting key benefits
     
-    Strictly always format your response as a JSON object with these fields:
-    - recommended_systems: array of objects with name, description, specifications
-    - reasoning: string explaining your recommendations
-    - additional_considerations: array of strings with installation tips
+    IMPORTANT RULES:
+    - When water source is "borehole", ALWAYS recommend an indirect system (marked with "I" in model names)
+    - Match the tank capacity as closely as possible to the recommended capacity from technical analysis
+    - The primary recommendation should be the closest match to the ideal specifications
+    - Alternative options should offer different capacity/technology options that still meet basic requirements
+    - Do NOT include pricing information in the recommendations
+    - Do NOT include a system configuration diagram
+    
+    Also include:
+    - Water Quality Requirements section with 2-4 relevant parameters (like TDS, hardness, pH, etc.)
+    - Additional Components section with 2-3 required accessories (controller, heater fluid, backup heater, etc.)
+    - Technical Specifications section with key performance metrics
+    - Installation Notes with 2-3 practical tips
+    - Warranty information
+    
+    Format your response as a JSON object with these specific fields (do NOT include any comments in the JSON):
+    ```json
+    {{
+      "primary_recommendation": {{
+        "name": "EXACT SYSTEM NAME",
+        "model": "MODEL NUMBER",
+        "description": "Brief description of benefits and features",
+        "specifications": {{
+          "tank_size": "XXX Liters",
+          "collector_type": "Type of collector",
+          "heat_output": "XX kWh/day (max)",
+          "suitable_for": "Up to X people"
+        }}
+      }},
+      "alternative_options": [
+        {{
+          "name": "EXACT SYSTEM NAME",
+          "model": "MODEL NUMBER", 
+          "description": "Brief description",
+          "specifications": {{
+            "tank_size": "XXX Liters",
+            "collector_type": "Type of collector"
+          }},
+          "price_category": "High/Medium/Low"
+        }},
+        {{
+          "name": "EXACT SYSTEM NAME",
+          "model": "MODEL NUMBER",
+          "description": "Brief description",
+          "specifications": {{
+            "tank_size": "XXX Liters",
+            "collector_type": "Type of collector"
+          }},
+          "price_category": "High/Medium/Low"
+        }}
+      ],
+      "water_quality_requirements": [
+        {{"parameter": "Parameter name", "value": "Recommended value"}},
+        {{"parameter": "Parameter name", "value": "Recommended value"}},
+        {{"parameter": "Parameter name", "value": "Recommended value"}},
+        {{"parameter": "Parameter name", "value": "Recommended value"}}
+      ],
+      "additional_components": [
+        {{
+          "name": "Component name",
+          "description": "Brief description of purpose"
+        }},
+        {{
+          "name": "Component name",
+          "description": "Brief description of purpose"
+        }},
+        {{
+          "name": "Component name",
+          "description": "Brief description of purpose"
+        }}
+      ],
+      "technical_specifications": [
+        {{"parameter": "Parameter name", "value": "Value"}},
+        {{"parameter": "Parameter name", "value": "Value"}},
+        {{"parameter": "Parameter name", "value": "Value"}}
+      ],
+      "installation_notes": [
+        "Installation tip 1",
+        "Installation tip 2",
+        "Installation tip 3"
+      ],
+      "warranty": {{
+        "tank": "X years",
+        "collector": "X years",
+        "parts": "X years"
+      }}
+    }}
+    ```
     """
     
     # Generate AI response
@@ -149,9 +232,6 @@ def generate_ai_recommendations(analysis: Dict[str, Any], pinecone_results: List
         
         # Extract response content
         response_text = result.content
-        # print(f"AI Response: {response_text}")
-        
-
         
         # Try to parse JSON from the response
         try:
@@ -169,14 +249,88 @@ def generate_ai_recommendations(analysis: Dict[str, Any], pinecone_results: List
                 else:
                     # Last resort: try to parse the entire response as JSON
                     parsed_json = json.loads(response_text)
-                    
-                # Extract all product names
-            recommended_names = [system["name"] for system in parsed_json["recommended_systems"]]
-
-            print(recommended_names)
-            matched_ids = [solar_water_heaters.get(name) for name in recommended_names if name in solar_water_heaters]
-
-            print(matched_ids)
+            
+            # Map the parsed JSON to our response model
+            recommended_systems = []
+            
+            # Add primary recommendation
+            if "primary_recommendation" in parsed_json:
+                primary = parsed_json["primary_recommendation"]
+                recommended_systems.append({
+                    "name": primary["name"],
+                    "model": primary["model"],
+                    "description": primary["description"],
+                    "is_primary": True,
+                    "specifications": primary["specifications"]
+                })
+            
+            # Add alternative options
+            if "alternative_options" in parsed_json:
+                for alt in parsed_json["alternative_options"]:
+                    recommended_systems.append({
+                        "name": alt["name"],
+                        "model": alt["model"],
+                        "description": alt["description"],
+                        "is_primary": False,
+                        "specifications": alt["specifications"],
+                        "price_category": alt.get("price_category", "")
+                    })
+            
+            # Extract other details for the response
+            water_quality = parsed_json.get("water_quality_requirements", [])
+            additional_components = parsed_json.get("additional_components", [])
+            technical_specs = parsed_json.get("technical_specifications", [])
+            installation_notes = parsed_json.get("installation_notes", [])
+            warranty = parsed_json.get("warranty", {})
+            
+            # Map product names to ERP IDs
+            solar_water_heaters = {
+                "ULTRASUN UFS150D FLATPLATE SOLAR HOT WATER SYSTEM": "DSD150",
+                "ULTRASUN UFS200D FLATPLATE SOLAR HOT WATER SYSTEM": "DSD200",
+                "ULTRASUN UFS300D FLATPLATE SOLAR HOT WATER SYSTEM": "DSD300",
+                "ULTRASUN UFS150I INDIRECT SOLAR HOT WATER SYSTEM": "UFS150I",
+                "ULTRASUN UFS200DE DIRECT ENAMEL SOLAR HOT WATER SYSTEM": "UFS200DE",
+                "ULTRASUN UFS200I INDIRECT SOLAR HOT WATER SYSTEM": "UFS200I",
+                "ULTRASUN UFS300DE DIRECT ENAMEL SOLAR HOT WATER SYSTEM": "UFS300DE",
+                "ULTRASUN UFS300I INDIRECT SOLAR HOT WATER SYSTEM": "UFS300I",
+                "ULTRASUN UFX160D FLATPLATE SOLAR HOT WATER SYSTEM": "ESD 150",
+                "ULTRASUN UFX200D FLATPLATE SOLAR HOT WATER SYSTEM": "ESD200",
+                "ULTRASUN UFX300D FLATPLATE SOLAR HOT WATER SYSTEM": "ESD300",
+                "ULTRASUN UFX160I FLATPLATE SOLAR HOT WATER SYSTEM": "ESI150",
+                "ULTRASUN UFX200I FLATPLATE SOLAR HOT WATER SYSTEM": "ESI200",
+                "ULTRASUN UFX300I FLATPLATE SOLAR HOT WATER SYSTEM": "ESI300",
+                "ULTRASUN UVT200 VACTUBE SOLAR HOT WATER SYSTEM": "DVS200",
+                "ULTRASUN UVT300 VACTUBE SOLAR HOT WATER SYSTEM": "DVS300",
+                "ULTRASUN UVR150 VACROD SOLAR HOT WATER SYSTEM": "DSH150",
+                "ULTRASUN UVR200 VACROD SOLAR HOT WATER SYSTEM": "DSH200",
+                "ULTRASUN UVR300 VACROD SOLAR HOT WATER SYSTEM": "DSH300",
+                "DAYLIFF HPW 80LITRES ALL-IN-ONE VERTICAL WALL MOUNT HEAT PUMP": "HPW080",
+                "DAYLIFF HPW 120LITRES ALL-IN-ONE HEAT PUMP": "HPW120",
+                "DAYLIFF HPW 150LITRES ALL-IN-ONE HEAT PUMP": "HPW150",
+                "DAYLIFF HPW 200LITRES ALL-IN-ONE HEAT PUMP": "HPW200",
+                "DAYLIFF HPW 300LITRES ALL-IN-ONE HEAT PUMP": "HPW300",
+                "ULTRASUN CWS1000 SOLAR HOT WATER SYSTEM": "EST1000",
+                "ULTRASUN CWS1500 SOLAR HOT WATER SYSTEM": "EST1500",
+                "ULTRASUN CWS2000 SOLAR HOT WATER SYSTEM": "EST2000"
+            }
+            
+            # Extract all product names for validation
+            recommended_names = [system["name"] for system in recommended_systems]
+            
+            # Check if recommended products exist in the mapping
+            invalid_names = [name for name in recommended_names if name not in solar_water_heaters]
+            if invalid_names:
+                print(f"Warning: Some recommended products not found in ERP database: {invalid_names}")
+            
+            # Return structured response
+            return RecommendationResponse(
+                recommended_systems=recommended_systems,
+                water_quality_requirements=water_quality,
+                additional_components=additional_components,
+                technical_specifications=technical_specs,
+                installation_notes=installation_notes,
+                warranty=warranty
+            )
             
         except (json.JSONDecodeError, AttributeError) as json_err:
             print(f"JSON parsing error: {str(json_err)}")
@@ -185,9 +339,13 @@ def generate_ai_recommendations(analysis: Dict[str, Any], pinecone_results: List
             # If JSON parsing fails, try to extract structured information using the model again
             extraction_prompt = f"""
             I couldn't parse your previous response as valid JSON. Please format your recommendations as valid JSON with these fields:
-            - recommended_systems: array of objects with name, description, specifications
-            - reasoning: string explaining your recommendations
-            - additional_considerations: array of strings with installation tips
+            - primary_recommendation: object with name, model, description, specifications
+            - alternative_options: array of objects with name, model, description, specifications
+            - water_quality_requirements: array of objects with parameter and value
+            - additional_components: array of objects with name and description
+            - technical_specifications: array of objects with parameter and value
+            - installation_notes: array of strings
+            - warranty: object with tank, collector, parts values
             
             Please provide ONLY the JSON response without any explanation or code blocks.
             """
@@ -201,34 +359,124 @@ def generate_ai_recommendations(analysis: Dict[str, Any], pinecone_results: List
                 retry_response = retry_result.content
                 parsed_json = json.loads(retry_response)
                 
+                # Process the parsed JSON (same as above)
+                recommended_systems = []
+                
+                # Add primary recommendation
+                if "primary_recommendation" in parsed_json:
+                    primary = parsed_json["primary_recommendation"]
+                    recommended_systems.append({
+                        "name": primary["name"],
+                        "model": primary["model"],
+                        "description": primary["description"],
+                        "is_primary": True,
+                        "specifications": primary["specifications"]
+                    })
+                
+                # Add alternative options
+                if "alternative_options" in parsed_json:
+                    for alt in parsed_json["alternative_options"]:
+                        recommended_systems.append({
+                            "name": alt["name"],
+                            "model": alt["model"],
+                            "description": alt["description"],
+                            "is_primary": False,
+                            "specifications": alt["specifications"],
+                            "price_category": alt.get("price_category", "")
+                        })
+                
+                # Extract other details for the response
+                water_quality = parsed_json.get("water_quality_requirements", [])
+                additional_components = parsed_json.get("additional_components", [])
+                technical_specs = parsed_json.get("technical_specifications", [])
+                installation_notes = parsed_json.get("installation_notes", [])
+                warranty = parsed_json.get("warranty", {})
+                
+                return RecommendationResponse(
+                    recommended_systems=recommended_systems,
+                    water_quality_requirements=water_quality,
+                    additional_components=additional_components,
+                    technical_specifications=technical_specs,
+                    installation_notes=installation_notes,
+                    warranty=warranty
+                )
+                
             except Exception as retry_err:
                 print(f"Retry failed: {str(retry_err)}")
                 
                 # Final fallback: create structured response manually
-                parsed_json = {
-                    "recommended_systems": [
+                return RecommendationResponse(
+                    recommended_systems=[
                         {
-                            "name": "Solar Water Heating System",
-                            "description": "Based on your requirements, this system is suitable for your needs.",
+                            "name": "ULTRASUN UFS200D FLATPLATE SOLAR HOT WATER SYSTEM",
+                            "model": "DSD200",
+                            "description": "Dayliff Ultrasun UFS Flat Plate Solar Hot Water Systems are efficient and economical water heaters that provide excellent performance in all domestic applications.",
+                            "is_primary": True,
                             "specifications": {
-                                "capacity": f"{analysis['system_size_recommendation']['ideal_capacity_liters']:.0f} liters",
-                                "collector_area": f"{analysis['system_size_recommendation']['collector_area_needed']:.1f} m²"
+                                "tank_size": f"{int(analysis['system_size_recommendation']['ideal_capacity_liters'])} Liters",
+                                "collector_type": "Flatplate",
+                                "heat_output": "13 kWh/day (max)",
+                                "suitable_for": f"Up to {max(1, min(8, int(float(analysis['system_size_recommendation']['ideal_capacity_liters']) / 30)))} people"
                             }
+                        },
+                        {
+                            "name": "ULTRASUN UFS300D FLATPLATE SOLAR HOT WATER SYSTEM",
+                            "model": "DSD300",
+                            "description": "Higher capacity system ideal for larger households with greater hot water demands.",
+                            "is_primary": False,
+                            "specifications": {
+                                "tank_size": "300 Liters",
+                                "collector_type": "Flatplate"
+                            },
+                            "price_category": "Medium"
+                        },
+                        {
+                            "name": "ULTRASUN UVT200 VACTUBE SOLAR HOT WATER SYSTEM",
+                            "model": "DVS200",
+                            "description": "Vacuum tube technology for enhanced efficiency, especially in areas with less direct sunlight.",
+                            "is_primary": False,
+                            "specifications": {
+                                "tank_size": "200 Liters",
+                                "collector_type": "Vacuum Tube"
+                            },
+                            "price_category": "High"
                         }
                     ],
-                    "reasoning": "The recommendation is based on your daily hot water needs and available roof space.",
-                    "additional_considerations": [
-                        "Contact a Davis & Shirtliff representative for detailed installation advice.",
-                        "Professional installation is recommended for optimal performance."
-                    ]
-                }
-        
-        # Return structured response
-        return RecommendationResponse(
-            recommended_systems=parsed_json.get("recommended_systems", []),
-            reasoning=parsed_json.get("reasoning", ""),
-            additional_considerations=parsed_json.get("additional_considerations", [])
-        )
+                    water_quality_requirements=[
+                        {"parameter": "TDS", "value": "<1500mg/l"},
+                        {"parameter": "Hardness", "value": "<400mg/l CaCO3"},
+                        {"parameter": "Saturation Index", "value": ">0.8<1.0"}
+                    ],
+                    additional_components=[
+                        {
+                            "name": "SOLAR THERMAL SR609 AC CONTROLLER",
+                            "description": "Programmable temperature controller that automatically switches ON/OFF the electric booster heaters at certain pre-programmed times."
+                        },
+                        {
+                            "name": "SOLAR HOT WATER HEATER FLUID 20L",
+                            "description": "Heat transfer fluid for indirect solar hot water systems."
+                        },
+                        {
+                            "name": "HEATER 3KW RURAL",
+                            "description": "Electric heating element for temperature boosting during cloudy days."
+                        }
+                    ],
+                    technical_specifications=[
+                        {"parameter": "Maximum Heating Output", "value": "Based on average irradiation levels of 6000W/m²/day prevailing in September - March"},
+                        {"parameter": "Minimum Heating Output", "value": "Based on average irradiation levels of 4000W/m²/day prevailing in June/July"},
+                        {"parameter": "Operating Pressure", "value": "4 bar"}
+                    ],
+                    installation_notes=[
+                        "Professional installation recommended for optimal performance",
+                        "South-facing installation provides optimal sunlight exposure",
+                        "System must be installed with proper safety valves and pressure relief"
+                    ],
+                    warranty={
+                        "tank": "5 years",
+                        "collector": "10 years",
+                        "parts": "1 year"
+                    }
+                )
         
     except Exception as e:
         import traceback
