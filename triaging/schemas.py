@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 from langchain.output_parsers import ResponseSchema, StructuredOutputParser
 
@@ -18,10 +18,44 @@ class QuestionnaireResponse(BaseModel):
     waterSource: str = Field(..., description="Main source of water")
     electricitySource: str = Field(..., description="Primary source of electricity")
 
+class SystemSpecification(BaseModel):
+    tank_size: str
+    collector_type: str
+    heat_output: Optional[str] = None
+    suitable_for: Optional[str] = None
+
+class RecommendedSystem(BaseModel):
+    name: str
+    model: str
+    description: str
+    is_primary: bool = False
+    specifications: SystemSpecification
+    price_category: Optional[str] = None
+
+class WaterQualityRequirement(BaseModel):
+    parameter: str
+    value: str
+
+class AdditionalComponent(BaseModel):
+    name: str
+    description: str
+
+class TechnicalSpecification(BaseModel):
+    parameter: str
+    value: str
+
+class WarrantyInfo(BaseModel):
+    tank: str
+    collector: str
+    parts: str
+
 class RecommendationResponse(BaseModel):
-    recommended_systems: List[Dict[str, Any]] = Field(..., description="List of recommended solar hot water systems")
-    reasoning: str = Field(..., description="Explanation for the recommendations")
-    additional_considerations: List[str] = Field(..., description="Additional considerations for the customer")
+    recommended_systems: List[RecommendedSystem]
+    water_quality_requirements: List[WaterQualityRequirement] = Field(default_factory=list)
+    additional_components: List[AdditionalComponent] = Field(default_factory=list)
+    technical_specifications: List[TechnicalSpecification] = Field(default_factory=list)
+    installation_notes: List[str] = Field(default_factory=list)
+    warranty: Optional[WarrantyInfo] = None
 
 class ExpansionParameters(BaseModel):
     selected_system: str = Field(..., description="Currently installed system from dropdown")
