@@ -7,12 +7,12 @@ def get_triaging_prompt_template():
             (
                 "human",
                 """
-                Analyze the following user query and generate 5 highly relevant questions to qualify their needs for a solar water heating solution:
+                Analyze the following user query and generate 6 highly relevant questions to qualify their needs for a solar water heating solution:
                 
                 User Query: "{user_query}"
                 
                 TASK:
-                Generate 5 specific questions that will help better understand this customer's requirements and constraints. These questions should be carefully tailored to the specific context of their query.
+                Generate 6 specific questions that will help better understand this customer's requirements and constraints. These questions should be carefully tailored to the specific context of their query.
                 
                 INSTRUCTIONS:
                 1. Each question must be unique and directly relevant to what is already mentioned or implied in the user query
@@ -20,6 +20,7 @@ def get_triaging_prompt_template():
                 3. Focus on technical specifications, implementation requirements, and customer expectations
                 4. Format precisely as "Q1: [Question]", "Q2: [Question]", etc.
                 5. Each question should be concise (10-20 words) and direct
+                6. The last question should specificaly ask if the client wants  Solar Panels or Heat Pumps. This is very important to include.
                 
                 ESSENTIAL AREAS TO COVER (prioritize based on relevance to the query):
                 • System capacity: Daily hot water volume needed, number of users, peak demand periods
@@ -50,12 +51,15 @@ def get_triaging_prompt_template():
                 - Ask about capacity requirements more precisely (peak loads, usage patterns)
                 
                 RESPONSE FORMAT:
-                Return ONLY the 5 numbered questions, formatted exactly as follows:
+                Return ONLY the 6 numbered questions, formatted exactly as follows:
                 Q1: [First question relevant to user query]
                 Q2: [Second question relevant to user query]
                 Q3: [Third question relevant to user query]
                 Q4: [Fourth question relevant to user query]
                 Q5: [Fifth question relevant to user query]
+                Q6: [Sixth question as instructed, specifically asking about Solar Panels or Heat Pumps]
+                
+                Strictly follow the format above. Strictly Do not include any additional text or explanations. Stick to instructions and format provided.
                 """
             ),
         ]
@@ -107,4 +111,3 @@ expansion_system_prompt = """
     Format responses as structured JSON with clear capacity breakdowns and implementation steps.
     Ensure all recommendations are practical and can be implemented by Davis & Shirtliff technicians.
     """
-    
