@@ -19,14 +19,14 @@ ERP_BASE_URL = os.getenv("ERP_BASE_URL")
 USERNAME = os.getenv("ERP_USERNAME")
 PASSWORD = os.getenv("ERP_PASSWORD")
 
-# Now storing plaintext passwords for simplicity (don't do this in prod!)
+# Updated user database with user types
 fake_users_db = {
     "alice@company.com": {"name": "Alice", "password": "secret1"},
     "bob@company.com":   {"name": "Bob",   "password": "secret2"},
     "achieng4024mary@gmail.com": {"name": "Achieng", "password": "secret3"}
 }
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/sales-engineer/login")
 
 def verify_salesperson_email(email: str) -> Optional[dict]:
     """
@@ -34,12 +34,36 @@ def verify_salesperson_email(email: str) -> Optional[dict]:
     Returns the salesperson data if found, None otherwise
     """
     # Special case for testing
-    if email == "issirandom@gmail.com":
-        return {
-            "Name": "Test User",
+    test_emails = {
+        "issirandom@gmail.com": {
+            "Name": "Random",
             "Code": "TEST001",
             "E_Mail": "issirandom@gmail.com"
+        },
+        "achieng75mary@gmail.com": {
+            "Name": "Achieng",
+            "Code": "TEST002",
+            "E_Mail": "achieng75mary@gmail.com"
+        },
+        "joshuamusira01@gmail.com": {
+            "Name": "Joshua",
+            "Code": "TEST003",
+            "E_Mail": "joshuamusira01@gmail.com"
+        },
+        "omwengandrew12@gmail.com": {
+            "Name": "Andrew",
+            "Code": "TEST004",
+            "E_Mail": "omwengandrew12@gmail.com"
+        },
+        "raphaelsarota@gmail.com": {
+            "Name": "Raphael",
+            "Code": "TEST005",
+            "E_Mail": "raphaelsarota@gmail.com"
         }
+    }
+    
+    if email in test_emails:
+        return test_emails[email]
         
     try:
         # URL encode the email as it may contain special characters
@@ -58,6 +82,16 @@ def verify_salesperson_email(email: str) -> Optional[dict]:
     except Exception as e:
         print(f"Error verifying salesperson email: {str(e)}")
         return None
+
+def verify_password(plain_password, hashed_password):
+    # In development, we're using plaintext passwords, so direct comparison
+    # In production, you would use: return pwd_context.verify(plain_password, hashed_password)
+    return plain_password == hashed_password
+
+def get_password_hash(password):
+    # In development, we're returning plaintext
+    # In production, you would use: return pwd_context.hash(password)
+    return password
 
 def authenticate_user(email: str, password: str) -> Optional[dict]:
     # First verify if the email exists in the ERP system
