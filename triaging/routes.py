@@ -18,21 +18,25 @@ import re
 
 load_dotenv()
 
-client = OpenAI()
+# client = OpenAI()
 
 # Initialize Gemini model
-model = ChatGoogleGenerativeAI(model="gemini-1.5-pro-latest")
+# model = ChatGoogleGenerativeAI(model="gemini-1.5-flash")    
+# model = ChatOpenAI(
+#     model="gpt-3.5-turbo",
+#     temperature=0.7
+# )
 
 
 # load_dotenv()
 
 # OpenAI Configuration (commented out)
 # client = OpenAI()
-# model = ChatOpenAI(
-#     model_name="gpt-4o-mini",
-#     temperature=0.5,
-#     # streaming=True
-# )
+model = ChatOpenAI(
+    model_name="gpt-4o-mini",
+    temperature=0.5,
+    streaming=True
+)
 
 # Gemini Configuration
 # api_key = os.getenv("GEMINI_API_KEY")
@@ -68,6 +72,7 @@ async def get_user_question(user_query: UserQuery):
         # Extract the list of questions from the model's response
         # question_list = process_model_response(response)
         question_list = process_model_response(response_text)
+        print(f"Generated Questions: {question_list}")
         
         # Return the generated questions as a list
         return {"generated_questions": question_list}
@@ -113,9 +118,11 @@ async def recommend_system_ai_extraction(data: Dict[str, str] = Body(...)):
 async def recommend_system(data: QuestionnaireResponse = Body(...)):
     """Generate solar hot water system recommendations based on questionnaire responses"""
     try:
+        print(f"Received Data: {data}")
+        
         # Generate prompt and embeddings
         prompt = generate_prompt_from_questionnaire(data)
-        # print(f"Prompt: {prompt}")
+        print(f"Prompt: {prompt}")
         
         # Generate embeddings for the prompt
         embeddings = generate_embeddings(prompt)
@@ -127,6 +134,7 @@ async def recommend_system(data: QuestionnaireResponse = Body(...)):
         
         # Analyze requirements
         analysis = analyze_requirements(data)
+        print(f"Analysis: {analysis}")
         
         # Generate detailed recommendations
         recommendations = generate_ai_recommendations(analysis, pinecone_results, data)
