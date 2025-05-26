@@ -1,8 +1,9 @@
 from fastapi import APIRouter, HTTPException
 from product_manual.services import generate_answer
 from product_manual.schema import AnswerResponse, QuestionRequest
-# import openai  # Import OpenAI library
+import openai  # Import OpenAI library
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
 import os
 from langdetect import detect, LangDetectException
@@ -20,10 +21,14 @@ load_dotenv()
 
 # Gemini Configuration
 # GOOGLE_APPLICATION_CREDENTIALS = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
-model = ChatGoogleGenerativeAI(
-    model="gemini-1.5-pro-latest",
-    temperature=0.7,
-    convert_system_message_to_human=True
+# model = ChatGoogleGenerativeAI(
+#     model="gemini-1.5-flash",
+#     temperature=0.7,
+#     convert_system_message_to_human=True
+# )
+model = ChatOpenAI(
+    model="gpt-4o-mini", # gpt-4o-mini gpt-3.5-turbo
+    temperature=0.7
 )
 
 def translate_text(text, target_language="en"):
