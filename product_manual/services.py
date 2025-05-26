@@ -1,6 +1,6 @@
 from typing import Any, List, Dict, Optional
 from fastapi import HTTPException
-# from langchain_openai import ChatOpenAI  # Changed from OpenAI to ChatOpenAI
+from langchain_openai import ChatOpenAI  # Changed from OpenAI to ChatOpenAI
 # from langchain.chains import create_retrieval_chain
 # from langchain.chains.combine_documents import create_stuff_documents_chain
 # from langchain_core.prompts import ChatPromptTemplate
@@ -36,10 +36,9 @@ if not PINECONE_API_KEY:
 embeddings = OpenAIEmbeddings(api_key=OPENAI_API_KEY)
 pc = Pinecone(api_key=PINECONE_API_KEY)
 index = pc.Index(index_name)
-model = ChatGoogleGenerativeAI(
-    model="gemini-1.5-pro-latest",
-    temperature=0.7,
-    convert_system_message_to_human=True
+model = ChatOpenAI(
+    model="gpt-4o-mini", # gpt-4o-mini gpt-3.5-turbo
+    temperature=0.7
 )
 
 # Updated PineconeRetriever class that's compatible with newer LangChain versions
