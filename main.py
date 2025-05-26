@@ -5,6 +5,9 @@ from triaging.routes import router as triaging_router
 from product_manual.routes import router as product_manual_router
 from erp.routes import router as erp_router
 from Auth.routes import router as auth_router
+from sunshine.routes import router as sunshine_router
+from customer_proposal.database import init_db
+from customer_proposal.routes import api_router
 
 app = FastAPI(
      title="Solar Hot Water System API",
@@ -12,29 +15,28 @@ app = FastAPI(
     
 )
 
+# Initialize database on startup
+@app.on_event("startup")
+def on_startup():
+    init_db()
+
+
 # Add cors middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://f1-f.vercel.app", "http://localhost:5173"],
+    # allow_origins=["http://localhost:5173/", "https://f1-f.vercel.app/"],
+    allow_origins=["http://localhost:5173", "https://f1-f.vercel.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
+app.include_router(api_router)
 app.include_router(triaging_router)
 app.include_router(product_manual_router)
 app.include_router(erp_router)
 app.include_router(auth_router)
-
+app.include_router(sunshine_router)
 
 @app.get('/')
 def health_check():
     return JSONResponse(content={"status": "Wellcome. The server is up and Running!"})
-
-import os
-import uvicorn
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port)
-
