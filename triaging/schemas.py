@@ -14,9 +14,10 @@ class QuestionnaireResponse(BaseModel):
     budget: str = Field(..., description="Estimated budget for the system")
     location: str = Field(..., description="Property location for installation")
     existingSystem: str = Field(..., description="Type of roof the property has")
-    timeline: str = Field(..., description="Timeline for installation")
+    timeline: Optional[str] = Field(None, description="Timeline for installation")
     waterSource: str = Field(..., description="Main source of water")
     electricitySource: str = Field(..., description="Primary source of electricity")
+    systemType: str = Field(..., description="Preferred type of system (e.g., Solar Panels, Heat Pumps)")
 
 class SystemSpecification(BaseModel):
     tank_size: str
