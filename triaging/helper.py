@@ -1,7 +1,7 @@
 import os
 import re
 from typing import Any, Dict, List
-from langchain_openai  import OpenAIEmbeddings
+from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from fastapi import HTTPException
 from triaging.schemas import QuestionnaireResponse
 from pinecone import Pinecone
@@ -22,10 +22,15 @@ pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
 # Connect to the existing index
 index = pc.Index(index_name)
 
-llm = ChatGoogleGenerativeAI(
-    model="gemini-1.5-pro-latest",
-    temperature=0.7,
-    convert_system_message_to_human=True
+# llm = ChatGoogleGenerativeAI(
+#     model="gemini-1.5-flash",
+#     temperature=0.7,
+#     convert_system_message_to_human=True
+# )
+
+llm = ChatOpenAI(
+    model="gpt-4o-mini", 
+    temperature=0.7
 )
 
 # embeddings = OpenAIEmbeddings(api_key=os.getenv("OPENAI_API_KEY"))
@@ -72,6 +77,7 @@ def generate_prompt_from_questionnaire(data: QuestionnaireResponse) -> str:
     Installation Timeline: {data.timeline}
     Water Source: {data.waterSource}
     Electricity Source: {data.electricitySource}
+    System Type: {data.systemType}
     """
 
 def get_recommendations_from_pinecone(vector: List[float], top_k: int = 5) -> List[Dict[str, Any]]:
@@ -104,6 +110,9 @@ def analyze_requirements(data: QuestionnaireResponse) -> Dict[str, Any]:
     except ValueError:
         # Default fallback if parsing fails
         num_occupants = 4
+
+    # Extract system type
+    system_type = data.systemType.lower() if data.systemType else "solar panels"
     
     # Water consumption estimation (50 liters per person per day as specified)
     daily_usage = 50  # Fixed at 50 liters per person as specified in requirements
@@ -181,7 +190,8 @@ def analyze_requirements(data: QuestionnaireResponse) -> Dict[str, Any]:
             "ideal_capacity_liters": total_daily_hot_water * 1.2
         },
         "water_source": data.waterSource,
-        "electricity_source": data.electricitySource
+        "electricity_source": data.electricitySource,
+        "system_type": system_type
     }
     
 async def extract_questionnaire_data_with_ai(data: Dict[str, str]) -> QuestionnaireResponse:
@@ -209,7 +219,10 @@ async def extract_questionnaire_data_with_ai(data: Dict[str, str]) -> Questionna
             ResponseSchema(name="waterSource", 
                            description="Main source of water (Municipal, Borehole, Rainwater, or Surface water)"),
             ResponseSchema(name="electricitySource", 
-                           description="Primary source of electricity (Grid, Solar, Generator, or None)")
+                           description="Primary source of electricity (Grid, Solar, Generator, or None)"),
+
+            ResponseSchema(name="systemType",
+                            description="Preferred type of system (e.g., Solar Panels, Heat Pumps)")
         ]
         
         # Create output parser
@@ -267,7 +280,8 @@ async def extract_questionnaire_data_with_ai(data: Dict[str, str]) -> Questionna
             existingSystem=extracted_data["existingSystem"],
             timeline=extracted_data["timeline"],
             waterSource=extracted_data["waterSource"],
-            electricitySource=extracted_data["electricitySource"]
+            electricitySource=extracted_data["electricitySource"],
+            systemType=extracted_data["systemType"]
         )
         
     except Exception as e:
