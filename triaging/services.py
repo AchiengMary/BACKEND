@@ -3,6 +3,7 @@ import openai
 from triaging.schemas import QuestionnaireResponse, RecommendationResponse
 from typing import Any, Dict, List
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
 from langchain_core.messages import SystemMessage, HumanMessage
 import json
@@ -14,11 +15,15 @@ load_dotenv()
 
    
 # Create model instance with higher temperature for better extraction
-model = ChatGoogleGenerativeAI(
-        model="gemini-1.5-flash",
-        temperature=0.2,  # Lower temperature for more factual responses
-        max_output_tokens=2048  # Ensure enough tokens for complete response
-    )
+# model = ChatGoogleGenerativeAI(
+#         model="gemini-1.5-flash",
+#         temperature=0.2,  # Lower temperature for more factual responses
+#         max_output_tokens=2048  # Ensure enough tokens for complete response
+#     )
+model = ChatOpenAI(
+    model="gpt-4o-mini",  # gpt-4o-mini gpt-3.5-turbo
+    temperature=0.7
+)
 
 # Helper function to process model response
 def process_model_response(response):
@@ -35,7 +40,7 @@ def process_model_response(response):
             question_list = response.content.strip().split("\n")
 
         # Ensure we got exactly 5 questions
-        if len(question_list) != 5:
+        if len(question_list) != 6:
             raise ValueError("The model did not return the expected number of questions.")
         
         return question_list
@@ -61,6 +66,7 @@ def generate_ai_recommendations(analysis: Dict[str, Any], pinecone_results: List
     - Timeline: {data.timeline}
     - Water Source: {data.waterSource}
     - Electricity Source: {data.electricitySource}
+    - System Type: {data.systemType}
     
     ## Technical Analysis:
 
@@ -130,7 +136,8 @@ def generate_ai_recommendations(analysis: Dict[str, Any], pinecone_results: List
     4. Include a brief description (2-3 sentences) highlighting key benefits
     
     IMPORTANT RULES:
-    - When water source is "borehole", ALWAYS recommend an indirect system (marked with "I" in model names)
+    - When water source is "borehole", ALWAYS  recommend an indirect system (marked with "I" in model names)
+    - When the System Type is "Heat Pumps", always recommend a heat pump system as primary system else in alternative options try to include at least 1 heat pump system. 
     - Match the tank capacity as closely as possible to the recommended capacity from technical analysis
     - The primary recommendation should be the closest match to the ideal specifications
     - Alternative options should offer different capacity/technology options that still meet basic requirements
